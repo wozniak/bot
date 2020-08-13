@@ -1,16 +1,10 @@
 extern crate serenity;
-extern crate scrap;
-extern crate image;
 
-use scrap::{Capturer, Display};
-use std::io::ErrorKind::WouldBlock;
-use std::fs::File;
-use std::time::Duration;
-
-use std::{env, thread};
+use std::env;
 use serenity::client::Client;
 use serenity::prelude::*;
 use serenity::model::prelude::*;
+use serenity::model::guild::BanOptions;
 use serenity::framework::standard::{
     StandardFramework,
     CommandResult,
@@ -19,14 +13,11 @@ use serenity::framework::standard::{
         group
     }
 };
-use enigo::Enigo;
-use image::ImageEncoder;
-use std::io::Write;
 
 const PREFIX: &'static str = ".";
 
 #[group]
-#[commands(ping, pfp, user, screenshot)]
+#[commands(ping, pfp, user, help, warn)]
 struct General;
 
 struct Handler;
@@ -73,7 +64,7 @@ fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
 
 #[command]
 fn pfp(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let mut mentions: Vec<User>;
+    let mentions: Vec<User>;
     if msg.mentions == vec![] {
         mentions = vec![msg.author.clone()]; // only show the pfp of the message author
     } else {
@@ -93,10 +84,43 @@ fn pfp(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-fn user(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let cache = serenity::cache::Cache::new();
+fn warn(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let offender = &msg.mentions[0];
 
-    let mut mentions: Vec<User>;
+    if !msg.guild(&ctx.cache).unwrap()
+            .read()
+            .member(&ctx.http, msg.author.id)?
+            .permissions(&ctx.cache)?
+            .kick_members() {
+
+        msg.channel_id.send_message(&ctx.http, |m| {
+            m.embed(|e| {
+                e.description("you don't have the perms required to do that")
+            })
+        });
+
+        return Ok(())
+    }
+
+    msg.channel_id.send_message(&ctx.http, |m| {
+
+
+        m.embed(|e| {
+            e.author(|f| {
+                f.name(format!("{} was warned", offender.tag()))
+                    .icon_url(offender.face())
+            })
+                .field("reason", &msg.content.split(' ').skip(2).collect::<Vec<_>>().join(" "), false)
+                .footer(|f| f.text("powered by rust™"))
+        })
+    });
+
+    Ok(())
+}
+
+#[command]
+fn user(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let mentions: Vec<User>;
     if msg.mentions == vec![] {
         mentions = vec![msg.author.clone()]; // only show the pfp of the message author
     } else {
@@ -115,8 +139,8 @@ fn user(ctx: &mut Context, msg: &Message) -> CommandResult {
         msg.channel_id.send_message(&ctx.http, |m| {
             m.embed(|e| {
                 e.author(|f| {
-                    f.name(mention.tag());
-                    f.icon_url(mention.face())
+                    f.name(mention.tag())
+                        .icon_url(mention.face())
                 })
                     .field("account creation", mention.created_at(), false)
                     .field("server join date", member.joined_at.unwrap(), false)
@@ -131,55 +155,19 @@ fn user(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-fn screenshot(ctx: &mut Context, msg: &Message) -> CommandResult {
-  let display = Display::primary().expect("Couldn't find primary display.");
-    let mut capturer = Capturer::new(display).expect("Couldn't begin capture.");
-    let (w, h) = (capturer.width(), capturer.height());
+fn help(ctx: &mut Context, msg: &Message) -> CommandResult {
+    msg.channel_id.send_message(&ctx.http, |m| {
+        m.embed(|e| {
+            e.author(|f| {
+                f.name(ctx.cache.read().user.tag());
+                f.icon_url(ctx.cache.read().user.face())
+            })
+                .title("this bot's prefix is `.`")
+                .field("user [user]", "shows information about a user", false)
+                .field("pfp [user]", "shows the user's profile picture", false)
+                .field("warn [user]", "warns a user (requires ban permission)", false)
+        })
+    });
 
-    msg.channel_id.send_message(&ctx.http, |m| { m.content("getting a frame") });
-    loop {
-        // Wait until there's a frame.
-
-        let buffer = match capturer.frame() {
-            Ok(buffer) => buffer,
-            Err(error) => {
-                if error.kind() == WouldBlock {
-                    // Keep spinning.
-                    continue;
-                } else {
-                    panic!("Error: {}", error);
-                }
-            }
-        };
-
-        msg.channel_id.send_message(&ctx.http, |m| { m.content("bitflipping") });
-
-        let mut bitflipped = Vec::with_capacity(w * h * 4);
-        let stride = buffer.len() / h;
-
-        for y in 0..h {
-            for x in 0..w {
-                let i = stride * y + 4 * x;
-                bitflipped.extend_from_slice(&[
-                    buffer[i + 2],
-                    buffer[i + 1],
-                    buffer[i],
-                    255,
-                ]);
-            }
-        }
-
-        msg.channel_id.send_message(&ctx.http, |m| { m.content("sending") });
-
-        let mut file = File::create("tmp.png").unwrap();
-        let png = image::png::PNGEncoder::new(&file);
-        png.write_image(&bitflipped, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
-        file.flush();
-
-        println!("took a screenshot");
-        break
-    }
-
-    msg.channel_id.send_files(&ctx.http, vec!["tmp.png"], |m| { m.content("here lol") });
     Ok(())
 }

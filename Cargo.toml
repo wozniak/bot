@@ -8,7 +8,3 @@ edition = "2018"
 
 [dependencies]
 serenity = { version = "0.8", default-features = true }
-enigo = "*"
-scrap = "0.5"
-repng = "0.2.2"
-image = "*"
