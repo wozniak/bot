@@ -33,7 +33,7 @@ use crate::commands::structs::{MusicQueue, VoiceManager};
 const PREFIX: &'static str = ".";
 
 #[group]
-#[commands(pfp, user, help, warn, play, skip, queue)]
+#[commands(ping, pfp, user, warn, play, skip, queue)]
 struct Command;
 
 struct Handler;
