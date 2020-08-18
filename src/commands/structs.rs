@@ -4,7 +4,6 @@ use tokio::sync::{Mutex, RwLock};
 use serenity::client::bridge::voice::ClientVoiceManager;
 use std::collections::HashMap;
 use serenity::model::prelude::GuildId;
-use serenity::voice::AudioSource;
 
 pub struct VoiceManager;
 

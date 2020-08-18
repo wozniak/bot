@@ -1,5 +1,5 @@
 use serenity::prelude::Context;
-use serenity::model::prelude::{Message, User};
+use serenity::model::prelude::Message;
 use serenity::framework::standard::CommandResult;
 use serenity::framework::standard::macros::command;
 

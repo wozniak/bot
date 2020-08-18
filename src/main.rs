@@ -26,9 +26,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
 use serenity::model::prelude::GuildId;
-use std::thread::sleep;
-use serenity::static_assertions::_core::time::Duration;
-use crate::commands::structs::{MusicQueue, VoiceManager};
 
 const PREFIX: &'static str = ".";
 
