@@ -10,3 +10,6 @@ current features:
 new features coming soon™
 
 add it to your server [here](https://discord.com/api/oauth2/authorize?client_id=740590874597130291&permissions=473033824&scope=bot)
+
+![user.jpg]
+![music.jpg]
