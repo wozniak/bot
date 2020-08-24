@@ -5,7 +5,7 @@ current features:
 
 - music
 - getting user info
-- osu! stats (once I get an key)
+- osu! stats
 
 new features coming soon™
 
