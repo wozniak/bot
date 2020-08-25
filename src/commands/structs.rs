@@ -1,6 +1,6 @@
 use serenity::prelude::TypeMapKey;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use serenity::client::bridge::voice::ClientVoiceManager;
 use std::collections::HashMap;
 use serenity::model::prelude::GuildId;
@@ -14,5 +14,10 @@ impl TypeMapKey for VoiceManager {
 pub struct MusicQueue;
 
 impl TypeMapKey for MusicQueue {
-    type Value = Arc<RwLock<HashMap<GuildId, Vec<String>>>>;
+    type Value = Arc<Mutex<HashMap<GuildId, Vec<String>>>>;
+}
+
+pub struct MusicSkip;
+impl TypeMapKey for MusicSkip {
+    type Value = Arc<Mutex<HashMap<GuildId, bool>>>;
 }

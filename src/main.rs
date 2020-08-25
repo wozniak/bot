@@ -23,9 +23,9 @@ use serenity::{
     async_trait,
 };
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::collections::HashMap;
 use serenity::model::prelude::GuildId;
+use serenity::prelude::Mutex;
 
 const PREFIX: &'static str = ".";
 
@@ -68,8 +68,9 @@ async fn main() {
 
     {
         let mut data = client.data.write().await;
-        data.insert::<structs::MusicQueue>(Arc::new(RwLock::new(HashMap::<GuildId, Vec<String>>::new())));
+        data.insert::<structs::MusicQueue>(Arc::new(Mutex::new(HashMap::<GuildId, Vec<String>>::new())));
         data.insert::<structs::VoiceManager>(Arc::clone(&client.voice_manager));
+        data.insert::<structs::MusicSkip>(Arc::new(Mutex::new(HashMap::<GuildId, bool>::new())))
     }
 
     client.start().await.unwrap();
