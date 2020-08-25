@@ -78,19 +78,24 @@ async fn play(ctx: &Context, msg: &Message) -> CommandResult {
     let source = voice::ytdl(&format!("http://youtube.com/watch?v={}", song.id.video_id.as_ref().unwrap())).await.unwrap();
 
     println!("playing...");
-    let _ = handler.play_only(source);
+    let audio = handler.play_only(source);
 
-    //loop {
-    //    {
-    //        let lock = audio.lock().await;
-    //        if !lock.playing { break; }
-    //    }
-    //    tokio::time::delay_for(Duration::new(2, 0));
-    //}
+    drop(manager);
+    drop(data);
 
-    //let data = ctx.data.write().await;
-    //let queue = data.get::<MusicQueue>().unwrap().write().await;
-    //queue.get(&msg.guild_id.unwrap()).unwrap().pop();
+    loop {
+        {
+            let lock = audio.lock().await;
+            if lock.finished { break; }
+        }
+        tokio::time::delay_for(Duration::new(2, 0)).await;
+    }
+
+    println!("song is done lol");
+
+    let data = ctx.data.write().await;
+    let mut queue = data.get::<MusicQueue>().unwrap().write().await;
+    queue.get_mut(&msg.guild_id.unwrap()).unwrap().pop();
 
     Ok(())
 }
@@ -99,22 +104,30 @@ async fn play(ctx: &Context, msg: &Message) -> CommandResult {
 async fn queue(ctx: &Context, msg: &Message) -> CommandResult {
     let l = ctx.data.read().await.get::<MusicQueue>().cloned().unwrap();
     let x = l.read().await;
-    let mut songs = x.get(&msg.guild_id.unwrap()).unwrap().clone();
+    let mut songs = match x.get(&msg.guild_id.unwrap()) {
+        Some(v) => v,
+        None => Vec::<String>::new(),
+    };
+
     songs.reverse();
 
-    msg.channel_id.send_message(&ctx.http, |f| {
-        f.embed(move |mut e| {
-            e = e.title("queue");
-            for song in 0..songs.len() {
-                if song == 0 {
-                    e = e.field("current song", songs[song].clone(), false);
-                } else {
-                    e = e.field(format!("#{}", song), songs[song].clone(), false);
+    if songs.len() == 0 {
+        msg.channel_id.send_message(&ctx.http, |m| m.content("queue is empty")).await.unwrap();
+    } else {
+        msg.channel_id.send_message(&ctx.http, |f| {
+            f.embed(move |mut e| {
+                e = e.title("queue");
+                for song in 0..songs.len() {
+                    if song == 0 {
+                        e = e.field("current song", songs[song].clone(), false);
+                    } else {
+                        e = e.field(format!("#{}", song), songs[song].clone(), false);
+                    }
                 }
-            }
-            e
-        })
-    }).await.unwrap();
+                e
+            })
+        }).await.unwrap();
+    }
 
     Ok(())
 }
@@ -139,12 +152,6 @@ async fn skip(ctx: &Context, msg: &Message) -> CommandResult {
             e.description("music stopped")
         })
     }).await.unwrap();
-
-    let mut data = ctx.data.write().await;
-
-    let mut queue = data.get_mut::<MusicQueue>().unwrap().write().await;
-    let guild_queue = queue.get_mut(&msg.guild_id.unwrap()).unwrap();
-    guild_queue.pop();
 
     Ok(())
 
