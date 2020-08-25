@@ -2,12 +2,14 @@ mod user;
 mod warn;
 mod pfp;
 mod ping;
-mod commands;
+mod music;
 pub mod structs;
+mod osu_c;
 
+pub use osu_c::*;
 pub use pfp::*;
 pub use ping::*;
 pub use warn::*;
 pub use user::*;
 
-pub use commands::*;
+pub use music::*;

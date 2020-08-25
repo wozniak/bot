@@ -30,7 +30,7 @@ use serenity::model::prelude::GuildId;
 const PREFIX: &'static str = ".";
 
 #[group]
-#[commands(ping, pfp, user, warn, play, skip, queue)]
+#[commands(ping, pfp, user, warn, play, skip, queue, osu)]
 struct Command;
 
 struct Handler;

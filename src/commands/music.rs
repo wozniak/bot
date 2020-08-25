@@ -12,10 +12,23 @@ use serenity::{
 
 use crate::commands::structs::*;
 use serenity::static_assertions::_core::time::Duration;
+use yt_api::ApiKey;
+use std::env;
+use yt_api::search::{SearchList, ItemType};
 
 #[command]
 async fn play(ctx: &Context, msg: &Message) -> CommandResult {
-    let url: String = msg.content.split(" ").skip(1).collect::<Vec<_>>().join(" ");
+    let search_term = msg.content.split(" ").skip(1).collect::<Vec<_>>().join(" ");
+
+    let key = ApiKey::new(&env::var("YOUTUBE_TOKEN").expect("youtube api key not found"));
+    let search = SearchList::new(key)
+        .q(&search_term)
+        .item_type(ItemType::Video);
+
+    let list = search.perform().await.unwrap();
+
+    let song = &list.items[0];
+    let title = song.snippet.title.as_ref().unwrap();
 
     // queues song
     {
@@ -23,14 +36,14 @@ async fn play(ctx: &Context, msg: &Message) -> CommandResult {
         let mut queue = data.get_mut::<MusicQueue>().unwrap().write().await;
 
         match queue.get_mut(&msg.guild_id.unwrap()) {
-            Some(v) => v.insert(0, url.clone()),
-            None => { queue.insert(msg.guild_id.unwrap(), vec![url.clone()]); },
+            Some(v) => v.insert(0, title.clone()),
+            None => { queue.insert(msg.guild_id.unwrap(), vec![title.clone()]); },
         }
     }
 
     msg.channel_id.send_message(&ctx.http, |f| {
         f.embed(|e| {
-            e.description(format!("queued '{}'", &url))
+            e.description(format!("queued '{}'", &title))
         })
     }).await.unwrap();
 
@@ -38,7 +51,7 @@ async fn play(ctx: &Context, msg: &Message) -> CommandResult {
         let data = ctx.data.read().await;
         let map = data.get::<MusicQueue>().unwrap().read().await;
         let queue = map.get(&msg.guild_id.unwrap()).unwrap();
-        if queue.last().unwrap() == &url {
+        if queue.last().unwrap() == title {
             break;
         }
 
@@ -62,7 +75,7 @@ async fn play(ctx: &Context, msg: &Message) -> CommandResult {
     ).unwrap();
 
     println!("getting source");
-    let source = voice::ytdl_search(&url).await.unwrap();
+    let source = voice::ytdl(&format!("http://youtube.com/watch?v={}", song.id.video_id.as_ref().unwrap())).await.unwrap();
 
     println!("playing...");
     let _ = handler.play_only(source);

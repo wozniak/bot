@@ -9,4 +9,5 @@ edition = "2018"
 [dependencies]
 serenity = { version = "0.9.0-rc.0", features = ["voice"] }
 tokio = "0.2.22"
-rand = "0.7.3"
+yt-api = "0.2.0"
+rosu = "0.3.1"
