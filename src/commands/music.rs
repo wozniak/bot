@@ -6,21 +6,29 @@ use serenity::{
     },
     framework::standard::{
         CommandResult,
-        macros::command,
+        macros::{
+            command,
+        },
     },
 };
 
 use crate::commands::structs::*;
 use serenity::static_assertions::_core::time::Duration;
 use yt_api::ApiKey;
-use std::env;
 use yt_api::search::{SearchList, ItemType};
+use std::time::Instant;
 
 #[command]
 async fn play(ctx: &Context, msg: &Message) -> CommandResult {
+    let youtube_token: String;
+    {
+        let data = ctx.data.read().await;
+        youtube_token = String::from(data.get::<Config>().unwrap()["tokens"]["youtube"].as_str().unwrap());
+    }
+
     let search_term = msg.content.split(" ").skip(1).collect::<Vec<_>>().join(" ");
 
-    let key = ApiKey::new(&env::var("YOUTUBE_TOKEN").expect("youtube api key not found"));
+    let key = ApiKey::new(youtube_token);
     let search = SearchList::new(key)
         .q(&search_term)
         .item_type(ItemType::Video);
@@ -143,6 +151,33 @@ async fn queue(ctx: &Context, msg: &Message) -> CommandResult {
 
 #[command]
 async fn skip(ctx: &Context, msg: &Message) -> CommandResult {
+    let mut vote = msg.channel_id.send_message(&ctx.http, |m| m.content("skip current song?")).await.unwrap();
+
+    vote.react(&ctx.http, ReactionType::from('👌')).await.unwrap();
+
+    let votes_needed: usize;
+    {
+        let guild = msg.guild(&ctx.cache).await.unwrap();
+        let channel = guild.voice_states.get(&msg.author.id).unwrap().channel_id.unwrap().to_channel(&ctx.http).await.unwrap();
+        let guild_channel = channel.guild().unwrap();
+        votes_needed = guild_channel.members(&ctx.cache).await.unwrap().len() / 2 + 1;
+    }
+
+    let now = Instant::now();
+    loop {
+        let vote = ctx.http.get_message(vote.channel_id.0, vote.id.0).await.unwrap();
+        tokio::time::delay_for(Duration::from_secs(2)).await;
+        println!("{:?}", vote.reactions);
+        if vote.reactions[0].count >= votes_needed as u64 {
+            break;
+        } else {
+            if now.elapsed() > Duration::from_secs(30) {
+                msg.channel_id.say(&ctx.http, "vote didn't pass, ran out of time").await.unwrap();
+                return Ok(());
+            }
+        }
+    }
+
     {
         let mut data = ctx.data.write().await;
 
@@ -159,7 +194,7 @@ async fn skip(ctx: &Context, msg: &Message) -> CommandResult {
         skip_map.insert(msg.guild_id.unwrap(), true);
     }
 
-    msg.channel_id.send_message(&ctx.http, |m| m.content("skipped a song")).await.unwrap();
+    vote.edit(&ctx.http, |m| m.content("skipped a song")).await.unwrap();
 
     Ok(())
 

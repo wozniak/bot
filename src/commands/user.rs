@@ -6,6 +6,7 @@ use serenity::framework::standard::macros::command;
 
 
 #[command]
+#[aliases(whois,userinfo)]
 async fn user(ctx: &Context, msg: &Message) -> CommandResult {
     let mentions: Vec<User>;
     if msg.mentions == vec![] {
@@ -17,6 +18,8 @@ async fn user(ctx: &Context, msg: &Message) -> CommandResult {
     for mention in mentions {
         let member = msg.guild(&ctx.cache).await.unwrap()
             .member(&ctx, mention.id).await.unwrap();
+
+        let user = &mention;
 
         let mut roles: String = String::new();
         for role in member.roles(&ctx.cache).await.unwrap() {
@@ -33,7 +36,7 @@ async fn user(ctx: &Context, msg: &Message) -> CommandResult {
                     .field("server join date", member.joined_at.unwrap(), false)
                     .field("roles", roles, false)
                     .thumbnail(mention.face())
-                    .footer(|f| f.text("powered by rust™"))
+                    .footer(|f| f.text(user.id))
             })
         }).await.unwrap();
     }
