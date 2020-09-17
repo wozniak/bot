@@ -166,7 +166,7 @@ async fn skip(ctx: &Context, msg: &Message) -> CommandResult {
     let now = Instant::now();
     loop {
         let vote = ctx.http.get_message(vote.channel_id.0, vote.id.0).await.unwrap();
-        tokio::time::delay_for(Duration::from_secs(2)).await;
+        tokio::time::delay_for(Duration::from_secs(1)).await;
         println!("{:?}", vote.reactions);
         if vote.reactions[0].count >= votes_needed as u64 {
             break;

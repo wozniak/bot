@@ -54,20 +54,25 @@ async fn pay(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
         match bank.get_mut(&recipiant.id) {
             Some(u) => *u += amount,
-            None => { let _ = bank.insert(recipiant.id, amount); },
+            None => { let _ = bank.insert(recipiant.id, amount + start); },
         }
     }
 
-    let _ = msg.channel_id.say(&ctx.http, format!("payed {} {}", recipiant.mention(), amount)).await;
+    let _ = msg.channel_id.say(&ctx.http, format!("payed {} {}u", recipiant.mention(), amount)).await;
 
     Ok(())
 }
 
 #[command]
 async fn bal(ctx: &Context, msg: &Message) -> CommandResult {
+    let target: UserId = match msg.mentions.len() {
+        0 => msg.author.id,
+        _ => msg.mentions[0].id,
+    };
+
     let data = ctx.data.read().await;
     let bank = data.get::<Bank>().unwrap();
-    let money = match bank.lock().await.get(&msg.author.id) {
+    let money = match bank.lock().await.get(&target) {
         Some(u) => *u,
         None => data.get::<Config>().unwrap()["economy"]["starter"].as_integer().unwrap() as usize,
     };
@@ -79,45 +84,45 @@ async fn bal(ctx: &Context, msg: &Message) -> CommandResult {
 #[command]
 async fn gamble(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let risker = &msg.author;
-    let money = match args.single::<isize>() {
+    let money = match args.single::<usize>() {
         Ok(u) => u,
         Err(_) => {
-            let _ = msg.channel_id.say(&ctx.http, "need a sum of money to gamble").await;
+            let _ = msg.channel_id.say(&ctx.http, "you need an amount of money to gamble").await;
             return Ok(());
         }
     };
 
     let data = ctx.data.write().await;
     let mut bank = data.get::<Bank>().unwrap().lock().await;
+    let config = data.get::<Config>().unwrap();
 
-    if match bank.get(&risker.id) { Some(u) => *u as isize, None => data.get::<Config>().unwrap()["economy"]["starter"].as_integer().unwrap() as isize } > money {
+    match bank.get(&risker.id) {
+        Some(_) => {},
+        None => { let _ = bank.insert(risker.id, config["economy"]["starter"].as_integer().unwrap() as usize); },
+    }
+
+    if bank.get(&risker.id).unwrap() < &money {
         let _ = msg.channel_id.say(&ctx.http, "you don't have enough money to gamble").await;
+        return Ok(());
     }
 
-    let amount: isize;
-    let won = rand::random::<bool>();
+    let won: bool = rand::random();
     match won {
-        true => amount = money,
-        false => amount = -money,
+        true  => *bank.get_mut(&risker.id).unwrap() += money,
+        false => *bank.get_mut(&risker.id).unwrap() -= money,
     }
 
-    match bank.get_mut(&risker.id) {
-        Some(u) => *u = (*u as isize + money) as usize,
-        None => {
-            bank.insert(risker.id, (data.get::<Config>().unwrap()["economy"]["starter"].as_integer().unwrap() as isize + amount) as usize);
-        }
+    let result_string = match won {
+        true => "won",
+        false => "lost"
     };
 
-    let result_string: String;
-    if won { result_string = String::from("won") } else { result_string = String::from("lost") }
-
     let _ = msg.channel_id.say(&ctx.http,
-    format!("you gambled and **{}** `{}`, current balance is `{}`",
+    format!("you gambled and **{}** `{}u`. current balance is `{}u`",
             result_string,
             money,
             bank.get(&risker.id).unwrap()
-    ));
-
+    )).await;
 
     Ok(())
 }
